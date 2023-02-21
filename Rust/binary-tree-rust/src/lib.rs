@@ -45,7 +45,7 @@ fn inner(depth: i32, iterations: i32) -> String {
 }
 
 fn main() {
-    let n = 10 //TODO input
+    let n = 10; //TODO input
     let min_depth = 4;
     let max_depth = if min_depth + 2 > n { min_depth + 2 } else { n };
 
