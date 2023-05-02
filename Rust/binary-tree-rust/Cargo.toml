@@ -2,9 +2,9 @@ cargo-features = ["edition2021"]
 
 
 [package]
-name = "rust"
+name = "binary-tree-rust"
 version = "0.1.0"
-authors = ["knutaabo"]
+authors = ["knutaabo", "kentis"]
 edition = "2018"
 
 [lib]

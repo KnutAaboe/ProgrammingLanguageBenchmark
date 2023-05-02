@@ -7,10 +7,11 @@
 // contributed by Cristi Cobzarenco
 
 extern crate typed_arena;
-extern crate rayon;
+//extern crate rayon;
 
 use typed_arena::Arena;
-use rayon::prelude::*;
+//use rayon::prelude::*;
+use wasm_bindgen::prelude::*;
 
 struct Tree<'a> {
     children: Option<(&'a Tree<'a>, &'a Tree<'a>)>,
@@ -36,7 +37,7 @@ fn bottom_up_tree<'r>(arena: &'r Arena<Tree<'r>>, depth: i32)
 }
 
 fn inner(depth: i32, iterations: i32) -> String {
-    let chk: i32 = (0 .. iterations).into_par_iter().map(|_| {
+    let chk: i32 = (0 .. iterations).into_iter().map(|_| {
         let arena = Arena::new();
         let a = bottom_up_tree(&arena, depth);
         item_check(a)
@@ -44,7 +45,10 @@ fn inner(depth: i32, iterations: i32) -> String {
     format!("{}\t trees of depth {}\t check: {}", iterations, depth, chk)
 }
 
-fn main() {
+#[wasm_bindgen]
+pub fn generateTree() -> i32 {
+    // println!("hello from rust");
+    // 1
     let n = 10; //TODO input
     let min_depth = 4;
     let max_depth = if min_depth + 2 > n { min_depth + 2 } else { n };
@@ -59,7 +63,7 @@ fn main() {
     let long_lived_arena = Arena::new();
     let long_lived_tree = bottom_up_tree(&long_lived_arena, max_depth);
 
-    let messages = (min_depth/2..max_depth/2 + 1).into_par_iter().map(|half_depth| {
+    let messages = (min_depth/2..max_depth/2 + 1).into_iter().map(|half_depth| {
             let depth = half_depth * 2;
             let iterations = 1 << ((max_depth - depth + min_depth) as u32);
             inner(depth, iterations)
@@ -70,4 +74,5 @@ fn main() {
     }
 
     println!("long lived tree of depth {}\t check: {}", max_depth, item_check(long_lived_tree));
+    max_depth
 }
