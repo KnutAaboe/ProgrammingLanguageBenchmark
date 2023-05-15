@@ -6,12 +6,14 @@
 // multi-threaded version contributed by Alisdair Owens
 
 extern crate num_cpus;
+extern crate console_error_panic_hook;
 
 use std::cmp::min;
 use std::io;
-use std::io::{Write, BufWriter, ErrorKind};
+use std::io::{Write, BufWriter};
 use std::sync::{Mutex,Arc};
-use std::thread;
+use wasm_bindgen::prelude::*;
+use wasm_bindgen::JsValue;
 
 const LINE_LENGTH: usize = 60;
 const IM: u32 = 139968;
@@ -19,45 +21,29 @@ const LINES: usize = 1024;
 const BLKLEN: usize = LINE_LENGTH * LINES;
 
 struct MyStdOut {
-    thread_count: u16,
-    next_thread_num: u16,
     stdout: io::Stdout,
 }
 
 struct MyRandom {
     last: u32,
     count: usize,
-    thread_count: u16,
-    next_thread_num: u16,
 }
 
 impl MyRandom {
-    fn new(count: usize, thread_count: u16) -> MyRandom {
+    fn new(count: usize) -> MyRandom {
         MyRandom { 
             last: 42,
             count: count,
-            thread_count: thread_count,
-            next_thread_num: 0
         }
     }
     
     fn normalize(p: f32) -> u32 {(p * IM as f32).floor() as u32}
 
     fn reset(&mut self, count: usize) {
-        self.next_thread_num = 0;
         self.count = count;
     }
 
-    fn gen(&mut self, buf: &mut [u32], cur_thread: u16) -> Result<usize,()> {
-
-        if self.next_thread_num != cur_thread {
-            return Err(())
-        }
-
-        self.next_thread_num+=1;
-        if self.next_thread_num == self.thread_count {
-            self.next_thread_num = 0;
-        }
+    fn gen(&mut self, buf: &mut [u32]) -> Result<usize,()> {
 
         let to_gen = min(buf.len(), self.count);
         for i in 0..to_gen {
@@ -70,23 +56,12 @@ impl MyRandom {
 }
 
 impl MyStdOut {
-    fn new(thread_count: u16) -> MyStdOut {
+    fn new() -> MyStdOut {
         MyStdOut {
-            thread_count: thread_count,
-            next_thread_num: 0,
             stdout: io::stdout() 
         } 
     }
-    fn write(&mut self, data: &[u8], cur_thread: u16) -> io::Result<()> {
-        if self.next_thread_num != cur_thread {
-            return Err(io::Error::new(ErrorKind::Other, ""));
-        }
-
-        self.next_thread_num+=1;
-        if self.next_thread_num == self.thread_count {
-            self.next_thread_num = 0;
-        }
-
+    fn write(&mut self, data: &[u8]) -> io::Result<()> {
         self.stdout.write_all(data)
     }
 }
@@ -118,18 +93,17 @@ fn make_fasta2<I: Iterator<Item=u8>>(header: &str, mut it: I, mut n: usize)
     Ok(())
 }
 
-fn do_fasta(thread_num: u16, rng: Arc<Mutex<MyRandom>>,
+fn do_fasta(rng: Arc<Mutex<MyRandom>>,
             wr: Arc<Mutex<MyStdOut>>, data: Vec<(u32, u8)>) {
     
     let mut rng_buf = [0u32; BLKLEN];
     let mut out_buf = [0u8; BLKLEN + LINES];
     let mut count;
+	
     loop {
-        loop {
-            if let Ok(x) = rng.lock().unwrap().gen(&mut rng_buf, thread_num) {
-                count = x;
-                break;
-            }
+        count = match rng.lock().unwrap().gen(&mut rng_buf[..]) {
+            Ok(x) => x,
+            Err(_) => break,
         };
 
         if count == 0 {
@@ -137,53 +111,83 @@ fn do_fasta(thread_num: u16, rng: Arc<Mutex<MyRandom>>,
         }
         let mut line_count = 0;
         for i in 0..count {
-            if i % LINE_LENGTH == 0 && i > 0 {
-                out_buf[i+line_count] = b'\n';
-                line_count += 1;
-            } 
-            let rn = rng_buf[i];
-            for j in &data {
-                if j.0 >= rn {
-                    out_buf[i+line_count] = j.1;
-                    break;
-                }
-            }
-        }
-        out_buf[count+line_count] = b'\n';
+            let r = rng_buf[i];
+            //let p = (r & 15) as f32 * 0.1;
 
-        while let Err(_) = wr.lock()
-                .unwrap()
-                .write(&out_buf[..(count+line_count+1)], thread_num) {};
+            if line_count == LINE_LENGTH {
+                out_buf[line_count] = b'\n';
+                line_count += 1;
+                wr.lock().unwrap().write(&out_buf[..line_count]).unwrap();
+                line_count = 0;
+            }
+
+            let d = &data;
+
+            let c = match d.binary_search_by(|p| p.0.cmp(&r)) {
+                Ok(idx) => d[idx].1,
+                Err(idx) => {
+                    if idx == 0 {
+                        d[idx].1
+                    } else {
+                        d[idx - 1].1
+                    }
+                }
+            };
+
+            out_buf[line_count] = c;
+            line_count += 1;
+        }
+
+        if line_count > 0 {
+            out_buf[line_count] = b'\n';
+            line_count += 1;
+            wr.lock().unwrap().write(&out_buf[..line_count]).unwrap();
+        }
     }
 }
 
 fn make_fasta(header: &str, rng: Arc<Mutex<MyRandom>>,
-                 data: Vec<(u32, u8)>, num_threads: u16
+                 data: Vec<(u32, u8)>
              ) -> io::Result<()> {
 
-    let stdout = Arc::new(Mutex::new(MyStdOut::new(num_threads)));
-    (io::stdout().write_all(header.as_bytes()))?;
-    let mut threads = Vec::new();
-    for thread in 0..num_threads {
-        let d = data.clone();
-        let rng_clone = rng.clone();
-        let stdout_clone = stdout.clone();
-        threads.push(thread::spawn(move || {
-            do_fasta(thread, rng_clone, stdout_clone, d);
-        }));
-    }
-    for thread_guard in threads {
-        thread_guard.join().unwrap();
-    }
+    let stdout = MyStdOut::new();
+    io::stdout().write_all(header.as_bytes())?;
+    do_fasta(rng.clone(), Arc::new(Mutex::new(stdout)), data);
     Ok(())
 }
 
-fn main() {
-    let n = 1000; //TODO input
-    
-    let num_threads: u16 = num_cpus::get() as u16;
 
-    let rng = Arc::new(Mutex::new(MyRandom::new(n*3, num_threads)));
+#[wasm_bindgen]
+pub fn main_js() {
+	console_error_panic_hook::set_once();
+	
+    if let Err(err) = run_main_js() {
+        let error_message = format!("Error: {}", err);
+        let js_error = JsValue::from_str(&error_message);
+        console_error(&js_error);
+        panic!();
+    }
+}
+
+#[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(js_namespace = console)]
+    fn error(s: &str);
+}
+
+fn console_error(js_value: &JsValue) {
+    if let Some(s) = js_value.as_string() {
+        error(&s);
+    } else {
+        error("Unknown error");
+    }
+}
+
+
+fn run_main_js() -> Result<(), Box<dyn std::error::Error>> {
+    let n = 1000; //TODO input
+
+    let rng = Arc::new(Mutex::new(MyRandom::new(n*3)));
     let alu: &[u8] = b"GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTT\
                        GGGAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTC\
                        GAGACCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACT\
@@ -205,14 +209,14 @@ fn main() {
                         ('t', 0.3015094502008)];
 
     make_fasta2(">ONE Homo sapiens alu\n",
-                    alu.iter().cycle().map(|c| *c), n * 2).unwrap();
+                    alu.iter().cycle().map(|c| *c), n * 2)?;
     make_fasta(">TWO IUB ambiguity codes\n",
-                    rng.clone(), make_random(iub), num_threads).unwrap();
+                    rng.clone(), make_random(iub))?;
 
     rng.lock().unwrap().reset(n*5);
 
     make_fasta(">THREE Homo sapiens frequency\n",
-                    rng, make_random(homosapiens), num_threads).unwrap();
+                    rng, make_random(homosapiens))?;
 
-    io::stdout().flush().unwrap();
+    Ok(())
 }
