@@ -1,5 +1,5 @@
 [package]
-name = "rust"
+name = "simple-rust"
 version = "0.1.0"
 authors = ["knutaabo"]
 edition = "2018"
