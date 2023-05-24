@@ -4,7 +4,8 @@
   "description": "",
   "scripts": {},
   "dependencies": {
-    "inout-loop-rust": "file:../inout-loop-rust/pkg"
-  },
-  "devDependencies": {}
+    "debug": "^4.3.4",
+    "inout-loop-rust": "file:../inout-loop-rust/pkg",
+    "mkdirp": "^3.0.1"
+  }
 }
