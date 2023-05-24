@@ -1,0 +1,10 @@
+{
+  "name": "fancystuff",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {},
+  "dependencies": {
+    "inout-loop-rust": "file:../inout-loop-rust/pkg"
+  },
+  "devDependencies": {}
+}
