@@ -1,7 +1,7 @@
 [package]
-name = "simple-rust"
+name = "inout-loop-rust"
 version = "0.1.0"
-authors = ["knutaabo"]
+authors = ["Sassan Zomorodi"]
 edition = "2018"
 
 [lib]
