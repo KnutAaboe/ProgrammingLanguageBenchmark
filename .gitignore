@@ -18,3 +18,7 @@ Rust/inout-loop-rust/target
 .vs/slnx.sqlite
 .vs/ProgrammingLanguageBenchmark/FileContentIndex/b3e3fc7c-d792-4ee0-a7fd-b27d18aea79c.vsidx
 *.vsidx
+.vs/VSWorkspaceState.json
+.vs/ProgrammingLanguageBenchmark/v17/.wsuo
+Rust/async-await-rust/target
+Rust/async-await-rust/pkg

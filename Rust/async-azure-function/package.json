@@ -1,0 +1,11 @@
+{
+  "name": "fancystuff",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {},
+  "dependencies": {
+    "debug": "^4.3.4",
+    "async-await-rust": "file:../async-await-rust/pkg",
+    "mkdirp": "^3.0.1"
+  }
+}
