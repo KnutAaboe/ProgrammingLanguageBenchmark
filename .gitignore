@@ -1,4 +1,5 @@
-
+**/.DS_Store
+**/node_modules
 Rust/fannkuch-redux-rust/.vs/fannkuch-redux-rust/FileContentIndex/76284cca-aade-4a75-92fd-6db57129ef78.vsidx
 Rust/fannkuch-redux-rust/.vs/fannkuch-redux-rust/FileContentIndex/read.lock
 Rust/fannkuch-redux-rust/.vs/fannkuch-redux-rust/v17/.wsuo
