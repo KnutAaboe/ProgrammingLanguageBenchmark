@@ -11,8 +11,6 @@ package com.tietoevry.azFuncBenchmarks;
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.HttpMethod;
 import com.microsoft.azure.functions.HttpRequestMessage;
-import com.microsoft.azure.functions.HttpResponseMessage;
-import com.microsoft.azure.functions.HttpStatus;
 import com.microsoft.azure.functions.annotation.AuthorizationLevel;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.HttpTrigger;
@@ -36,10 +34,7 @@ public class HttpTriggerBT {
                 HttpRequestMessage<Optional<String>> request,
             final ExecutionContext context) throws Exception {
         int n = 10;
-        // if (0 < args.length) {
-        //     n = Integer.parseInt(args[0]);
-        // }
-
+        
         final int maxDepth = n < (MIN_DEPTH + 2) ? MIN_DEPTH + 2 : n;
         final int stretchDepth = maxDepth + 1;
 
