@@ -136,11 +136,6 @@ public final class HttpTriggerFR implements Runnable
         }
     }
 
-    static void printResult( int n, int res, int chk )
-    {
-        System.out.println( chk+"\nPfannkuchen("+n+") = "+res );
-    }
-
     @FunctionName("HttpTriggerFR")
     public static void main(@HttpTrigger(
         name = "HttpTriggerFR",
@@ -150,14 +145,6 @@ public final class HttpTriggerFR implements Runnable
     final ExecutionContext context)
     {        
         n = 7;
-        if ( n < 0 || n > 12 ) {         // 13! won't fit into int
-            printResult( n, -1, -1 );
-            return;
-        }
-        if ( n <= 1 ) {
-            printResult( n, 0, 0 );
-            return;
-        }
 
         Fact = new int[n+1];
         Fact[0] = 1;
@@ -188,11 +175,7 @@ public final class HttpTriggerFR implements Runnable
         for ( int v : maxFlips ) {
             res = Math.max( res, v );
         }
-        int chk = 0;
-        for ( int v : chkSums ) {
-            chk += v;
-        }
         
-        printResult( n, res, chk );
+        System.out.println(res);
     }
 }

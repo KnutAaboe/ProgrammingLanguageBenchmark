@@ -36,12 +36,6 @@ public class HttpTriggerBT {
         int n = 10;
         
         final int maxDepth = n < (MIN_DEPTH + 2) ? MIN_DEPTH + 2 : n;
-        final int stretchDepth = maxDepth + 1;
-
-        System.out.println("stretch tree of depth " + stretchDepth + "\t check: " 
-           + bottomUpTree( stretchDepth).itemCheck());
-
-        final TreeNode longLivedTree = bottomUpTree(maxDepth);
 
         final String[] results = new String[(maxDepth - MIN_DEPTH) / 2 + 1];
 
@@ -66,9 +60,6 @@ public class HttpTriggerBT {
         for (final String str : results) {
             System.out.println(str);
         }
-
-        System.out.println("long lived tree of depth " + maxDepth + 
-            "\t check: " + longLivedTree.itemCheck());
     }
 
     private static TreeNode bottomUpTree(final int depth) {
