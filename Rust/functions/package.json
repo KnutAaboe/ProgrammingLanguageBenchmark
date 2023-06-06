@@ -7,11 +7,14 @@
     "test": "echo \"No tests yet...\""
   },
   "dependencies": {
-    "binary-tree-rust": "file:../binary-tree-rust/pkg",
-    "simple-rust": "file:../simple-rust/pkg",
-    "inout-loop-rust": "file:../inout-loop-rust/pkg",
-    "fasta-rust": "file:../fasta-rust/pkg",
-    "fannkuch-redux-rust": "file:../fannkuch-redux-rust/pkg"
+    "async-await-rust": "file:../rust-script/async-await-rust/pkg",
+    "binary-tree-rust": "file:../rust-script/binary-tree-rust/pkg",
+    "debug": "^4.3.4",
+    "fannkuch-redux-rust": "file:../rust-script/fannkuch-redux-rust/pkg",
+    "fasta-rust": "file:../rust-script/fasta-rust/pkg",
+    "inout-loop-rust": "file:../rust-script/inout-loop-rust/pkg",
+    "mkdirp": "^3.0.1",
+    "simple-rust": "file:../rust-script/simple-rust/pkg"
   },
   "devDependencies": {
     "azure-functions-core-tools": "^4.x"
