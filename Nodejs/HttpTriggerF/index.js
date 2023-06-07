@@ -108,7 +108,7 @@ module.exports = async function (context, req) {
     { s: 'Y', p: 0.02, c: 0, sc: 0 }];
 var hs = [{ s: 'a', p: 0.3029549426680, c: 0, sc: 0 }, { s: 'c', p: 0.1979883004921, c: 0, sc: 0 },
     { s: 'g', p: 0.1975473066391, c: 0, sc: 0 }, { s: 't', p: 0.3015094502008, c: 0, sc: 0 }];
-var n = 512; //TODO input
+var n = 1000; //TODO input
 make_cumulative(ac);
 make_cumulative(hs);
 repeat(alu, '>ONE Homo sapiens alu', n * 2);
