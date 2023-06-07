@@ -23,8 +23,8 @@ import java.util.concurrent.TimeUnit;
 public class HttpTriggerBT {
 
     private static final int MIN_DEPTH = 4;
-    private static final ExecutorService EXECUTOR_SERVICE = 
-        Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+    // private static final ExecutorService EXECUTOR_SERVICE = 
+    //     Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 
     @FunctionName("HttpTriggerBT")
     public static void main(@HttpTrigger(
@@ -41,7 +41,7 @@ public class HttpTriggerBT {
 
         for (int d = MIN_DEPTH; d <= maxDepth; d += 2) {
             final int depth = d;
-            EXECUTOR_SERVICE.execute(() -> {
+          //  EXECUTOR_SERVICE.execute(() -> {
                 int check = 0;
 
                 final int iterations = 1 << (maxDepth - depth + MIN_DEPTH);
@@ -51,11 +51,11 @@ public class HttpTriggerBT {
                 }
                 results[(depth - MIN_DEPTH) / 2] = 
                    iterations + "\t trees of depth " + depth + "\t check: " + check;
-            });
+          //  }//);
         }
 
-        EXECUTOR_SERVICE.shutdown();
-        EXECUTOR_SERVICE.awaitTermination(120L, TimeUnit.SECONDS);
+        // EXECUTOR_SERVICE.shutdown();
+        // EXECUTOR_SERVICE.awaitTermination(120L, TimeUnit.SECONDS);
 
         for (final String str : results) {
             System.out.println(str);

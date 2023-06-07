@@ -90,7 +90,7 @@
        }
    }
 
-module.exports = function (context, req) {
+module.exports = async function (context, req) {
     var ac = [{ s: 'a', p: 0.27, c: 0, sc: 0 },
     { s: 'c', p: 0.12, c: 0, sc: 0 },
     { s: 'g', p: 0.12, c: 0, sc: 0 },
