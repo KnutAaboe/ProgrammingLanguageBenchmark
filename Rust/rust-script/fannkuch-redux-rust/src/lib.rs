@@ -9,6 +9,7 @@ extern crate rayon;
 
 use std::{cmp, mem};
 use rayon::prelude::*;
+use wasm_bindgen::prelude::*;
 
 // This value controls the preferred maximum number of  blocks the workload is
 // broken up into. The actual value may be one higher (if the number of
@@ -135,7 +136,8 @@ fn fannkuch(n: i32) -> (i32, i32) {
               |(cs1, mf1), (cs2, mf2)| (cs1 + cs2, cmp::max(mf1, mf2)))
 }
 
-fn main() {
+#[wasm_bindgen]
+pub fn main_js() {
     let n = 7; //TODO input
 
     let (checksum, maxflips) = fannkuch(n);
