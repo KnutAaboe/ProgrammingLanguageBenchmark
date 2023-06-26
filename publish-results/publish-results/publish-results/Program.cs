@@ -1,5 +1,4 @@
-﻿using System.ComponentModel;
-using System.Text;
+﻿using System.Text;
 using CsvHelper;
 using VDS.RDF;
 using VDS.RDF.Writing;
@@ -12,130 +11,200 @@ class Program
 
     static void Main()
     {
-        // Load the CSV file
+        var records = LoadCSVRecords();
+        var graph = CreateRDFGraph(records);
+        SaveRDFGraph(graph);
+
+        Console.WriteLine("CSV to RDF conversion complete!");
+    }
+
+    static IEnumerable<MyDataClass> LoadCSVRecords()
+    {
         using (var reader = new StreamReader(csvFilePath))
         using (var csv = new CsvReader(reader, System.Globalization.CultureInfo.InvariantCulture))
         {
-            // Parse the CSV records
-            var records = csv.GetRecords<MyDataClass>();
+            return csv.GetRecords<MyDataClass>().ToList();
+        }
+    }
 
-            // Create a new RDF graph
-            var graph = new Graph();
+    static Graph CreateRDFGraph(IEnumerable<MyDataClass> records)
+    {
+        var graph = new Graph();
+        var nameList = new List<string> { "Cecilie", "Sassan", "Espen" };
+        int index = -1; // Counter for nameList index
+        var durationList = new Dictionary<string, int>(); // Lists the number of times each duration (ms) has been repeated
+        var nodeList = new Dictionary<string, string> { { "method", "" }, { "language", "" }, { "system", "" }, { "cpu", "" } };
+        var changeList = new Dictionary<string, bool> { { "language", false }, { "system", false }, { "cpu", false }, { "index", false } };
 
-            var nameList = new List<string> {"Cecilie", "Sassan", "Espen"};
-            int index = -1; // Counter for nameList index
-            var durationList = new Dictionary<string, int>(); // Lists the number of times each duration(ms) has been repeated
-            Dictionary<string, string> nodeList = new() { { "method", "" }, { "language", "" }, { "system", "" }, { "cpu", "" } };
-            Dictionary<string, bool> changeList = new() { { "language", false }, { "system", false }, { "cpu", false }, { "index", false } };
+        foreach (var record in records)
+        {
+            Dictionary<string, string> recordList = new() { { "method", record.Method }, { "language", record.Language }, { "system", record.System }, { "cpu", record.CPU } };
+            var duration = record.Duration;
 
-            // Iterate over the CSV records and create RDF triples
-            foreach (var record in records)
+            if (recordList["cpu"].Equals("") && recordList["system"].Equals("") && recordList["language"].Equals("") && recordList["method"].Equals("") && duration.Equals(""))
             {
-                Dictionary<string, string> recordList = new() { { "method", record.Method }, { "language", record.Language }, { "system", record.System }, { "cpu", record.CPU } };
-                var duration = record.Duration;
-
-                if (recordList["cpu"].Equals("") && recordList["system"].Equals("") && recordList["language"].Equals("") && recordList["method"].Equals("") && duration.Equals(""))
-                {
-                    index++;
-                    changeList["index"] = true;
-                    durationList = new();
-                    continue;
-                }
-
-                if (nameList.Contains(recordList["cpu"]) || recordList["cpu"].Equals("CPU"))
-                    continue;
-
-
-                if (index == -1)
-                {
-                    index++;
-                    changeList["index"] = true;
-                    durationList = new();
-                    // Create a new RDF triple with the subject URI
-                    var subject = graph.CreateUriNode(UriFactory.Create(mainURI + nameList[index]));
-                    var predicate = graph.CreateUriNode(UriFactory.Create(mainURI + "CPU"));
-                    var obj = graph.CreateLiteralNode(recordList["cpu"]);
-                    graph.Assert(new Triple(subject, predicate, obj));
-                    nodeList["cpu"] = recordList["cpu"];
-                    changeList["cpu"] = true;
-                }
-                else if (!recordList["cpu"].Equals(nodeList["cpu"]) || changeList["index"])
-                {
-                    durationList = new();
-                    var subject = graph.CreateUriNode(UriFactory.Create(mainURI + nameList[index]));
-                    var predicate = graph.CreateUriNode(UriFactory.Create(mainURI + "CPU"));
-                    var obj = graph.CreateLiteralNode(recordList["cpu"]);
-                    graph.Assert(new Triple(subject, predicate, obj));
-                    nodeList["cpu"] = recordList["cpu"];
-                    changeList["cpu"] = true;
-                }
-
-                if (!recordList["system"].Equals(nodeList["system"]) || changeList["cpu"] || changeList["index"])
-                {
-                    durationList = new();
-                    var subject = graph.CreateUriNode(UriFactory.Create(mainURI + nameList[index] + '/' + recordList["cpu"]));
-                    var predicate = graph.CreateUriNode(UriFactory.Create(mainURI + "System"));
-                    var obj = graph.CreateLiteralNode(recordList["system"]);
-                    graph.Assert(new Triple(subject, predicate, obj));
-                    nodeList["system"] = recordList["system"];
-                    changeList["system"] = true;
-                }
-
-                if (!recordList["language"].Equals(nodeList["language"]) || changeList["system"] || changeList["cpu"] || changeList["index"])
-                {
-                    durationList = new();
-                    var subject = graph.CreateUriNode(UriFactory.Create(mainURI + nameList[index] + '/' + recordList["cpu"] + '/' + recordList["system"]));
-                    var predicate = graph.CreateUriNode(UriFactory.Create(mainURI + "Language"));
-                    var obj = graph.CreateLiteralNode(recordList["language"]);
-                    graph.Assert(new Triple(subject, predicate, obj));
-                    nodeList["language"] = recordList["language"];
-                    changeList["language"] = true;
-                }
-
-                if (!recordList["method"].Equals(nodeList["method"]) || changeList["language"] || changeList["system"] || changeList["cpu"] || changeList["index"])
-                {
-                    var subject = graph.CreateUriNode(UriFactory.Create(mainURI + nameList[index] + '/' + recordList["cpu"] + '/' + recordList["system"] + '/' + recordList["language"]));
-                    var predicate = graph.CreateUriNode(UriFactory.Create(mainURI + "Method"));
-                    var obj = graph.CreateLiteralNode(recordList["method"]);
-                    graph.Assert(new Triple(subject, predicate, obj));
-                    nodeList["method"] = recordList["method"];
-                    durationList = new();
-                }
-
-                var subject1 = graph.CreateUriNode(UriFactory.Create(mainURI + nameList[index] + '/' + recordList["cpu"] + '/' + recordList["system"] + '/' + recordList["language"] + '/' + recordList["method"]));
-                var predicate1 = graph.CreateUriNode(UriFactory.Create(mainURI + "Duration"));
-                if (durationList.ContainsKey(duration))
-                {
-                    var obj = graph.CreateLiteralNode(duration + '.' + new string('0', durationList[duration]));
-                    graph.Assert(new Triple(subject1, predicate1, obj));
-                    durationList[duration]++;
-                }
-                else
-                {
-                    var obj = graph.CreateLiteralNode(duration);
-                    graph.Assert(new Triple(subject1, predicate1, obj));
-                    durationList[duration] = 1;
-                }
-
-                foreach (var category in changeList)
-                {
-                    changeList[category.Key] = false;
-                }
+                index++;
+                changeList["index"] = true;
+                durationList = new();
+                continue;
             }
 
-            // Serialize the RDF graph to Turtle format
-            var rdfWriter = new CompressingTurtleWriter();
-            using (var rdfStream = new MemoryStream())
-            using (var rdfWriterStream = new StreamWriter(rdfStream, Encoding.UTF8))
-            {
-                rdfWriter.Save(graph, rdfWriterStream);
+            if (nameList.Contains(recordList["cpu"]) || recordList["cpu"].Equals("CPU"))
+                continue;
 
-                // Save the RDF content to a file
-                File.WriteAllBytes(rdfFilePath, rdfStream.ToArray());
-            }
+            (index, graph, nodeList, changeList) = CreateSubjectTriple(graph, nameList, index, recordList, nodeList, changeList);
+
+            (graph, nodeList, changeList) = HandleCPUMethodChanges(graph, nameList, index, recordList, nodeList, changeList);
+
+            (graph, nodeList, changeList) = HandleSystemChange(graph, nameList, index, recordList, nodeList, changeList);
+
+            (graph, nodeList, changeList) = HandleLanguageChange(graph, nameList, index, recordList, nodeList, changeList);
+
+            (graph, nodeList, durationList) = HandleMethodChange(graph, nameList, index, recordList, nodeList, durationList, changeList);
+
+            (graph, durationList) = HandleDuration(graph, nameList, index, recordList, nodeList, durationList, duration);
+
+            changeList = ResetChangeList(changeList);
         }
 
-        Console.WriteLine("CSV to RDF conversion complete!");
+        return graph;
+    }
+
+    static (int, Graph, Dictionary<string, string>, Dictionary<string, bool>) CreateSubjectTriple(Graph graph, List<string> nameList, int index, Dictionary<string, string> recordList, Dictionary<string, string> nodeList, Dictionary<string, bool> changeList)
+    {
+        if (index == -1)
+        {
+            index++;
+            var subject = graph.CreateUriNode(UriFactory.Create(mainURI + nameList[index]));
+            var predicate = graph.CreateUriNode(UriFactory.Create(mainURI + "CPU"));
+            var obj = graph.CreateLiteralNode(recordList["cpu"]);
+            graph.Assert(new Triple(subject, predicate, obj));
+            nodeList["cpu"] = recordList["cpu"];
+            changeList["cpu"] = true;
+        }
+        else if (!recordList["cpu"].Equals(nodeList["cpu"]) || changeList["index"])
+        {
+            var subject = graph.CreateUriNode(UriFactory.Create(mainURI + nameList[index]));
+            var predicate = graph.CreateUriNode(UriFactory.Create(mainURI + "CPU"));
+            var obj = graph.CreateLiteralNode(recordList["cpu"]);
+            graph.Assert(new Triple(subject, predicate, obj));
+            nodeList["cpu"] = recordList["cpu"];
+            changeList["cpu"] = true;
+        }
+
+        return (index, graph, nodeList, changeList);
+    }
+
+    static (Graph, Dictionary<string, string>, Dictionary<string, bool>) HandleCPUMethodChanges(Graph graph, List<string> nameList, int index, Dictionary<string, string> recordList, Dictionary<string, string> nodeList, Dictionary<string, bool> changeList)
+    {
+        if (!recordList["system"].Equals(nodeList["system"]) || changeList["cpu"] || changeList["index"])
+        {
+            var subject = graph.CreateUriNode(UriFactory.Create(mainURI + nameList[index] + '/' + recordList["cpu"]));
+            var predicate = graph.CreateUriNode(UriFactory.Create(mainURI + "System"));
+            var obj = graph.CreateLiteralNode(recordList["system"]);
+            graph.Assert(new Triple(subject, predicate, obj));
+            nodeList["system"] = recordList["system"];
+            changeList["system"] = true;
+        }
+
+        if (!recordList["language"].Equals(nodeList["language"]) || changeList["system"] || changeList["cpu"] || changeList["index"])
+        {
+            var subject = graph.CreateUriNode(UriFactory.Create(mainURI + nameList[index] + '/' + recordList["cpu"] + '/' + recordList["system"]));
+            var predicate = graph.CreateUriNode(UriFactory.Create(mainURI + "Language"));
+            var obj = graph.CreateLiteralNode(recordList["language"]);
+            graph.Assert(new Triple(subject, predicate, obj));
+            nodeList["language"] = recordList["language"];
+            changeList["language"] = true;
+        }
+
+        return (graph, nodeList, changeList);
+    }
+
+    static (Graph, Dictionary<string, string>, Dictionary<string, bool>) HandleSystemChange(Graph graph, List<string> nameList, int index, Dictionary<string, string> recordList, Dictionary<string, string> nodeList, Dictionary<string, bool> changeList)
+    {
+        if (!recordList["system"].Equals(nodeList["system"]) || changeList["cpu"] || changeList["index"])
+        {
+            var subject = graph.CreateUriNode(UriFactory.Create(mainURI + nameList[index] + '/' + recordList["cpu"]));
+            var predicate = graph.CreateUriNode(UriFactory.Create(mainURI + "System"));
+            var obj = graph.CreateLiteralNode(recordList["system"]);
+            graph.Assert(new Triple(subject, predicate, obj));
+            nodeList["system"] = recordList["system"];
+            changeList["system"] = true;
+        }
+
+        return (graph, nodeList, changeList);
+    }
+
+    static (Graph, Dictionary<string, string>, Dictionary<string, bool>) HandleLanguageChange(Graph graph, List<string> nameList, int index, Dictionary<string, string> recordList, Dictionary<string, string> nodeList, Dictionary<string, bool> changeList)
+    {
+        if (!recordList["language"].Equals(nodeList["language"]) || changeList["system"] || changeList["cpu"] || changeList["index"])
+        {
+            var subject = graph.CreateUriNode(UriFactory.Create(mainURI + nameList[index] + '/' + recordList["cpu"] + '/' + recordList["system"]));
+            var predicate = graph.CreateUriNode(UriFactory.Create(mainURI + "Language"));
+            var obj = graph.CreateLiteralNode(recordList["language"]);
+            graph.Assert(new Triple(subject, predicate, obj));
+            nodeList["language"] = recordList["language"];
+            changeList["language"] = true;
+        }
+
+        return (graph, nodeList, changeList);
+    }
+
+    static (Graph, Dictionary<string, string>, Dictionary<string, int>) HandleMethodChange(Graph graph, List<string> nameList, int index, Dictionary<string, string> recordList, Dictionary<string, string> nodeList, Dictionary<string, int> durationList, Dictionary<string, bool> changeList)
+    {
+        if (!recordList["method"].Equals(nodeList["method"]) || changeList["language"] || changeList["system"] || changeList["cpu"] || changeList["index"])
+        {
+            var subject = graph.CreateUriNode(UriFactory.Create(mainURI + nameList[index] + '/' + recordList["cpu"] + '/' + recordList["system"] + '/' + recordList["language"]));
+            var predicate = graph.CreateUriNode(UriFactory.Create(mainURI + "Method"));
+            var obj = graph.CreateLiteralNode(recordList["method"]);
+            graph.Assert(new Triple(subject, predicate, obj));
+            nodeList["method"] = recordList["method"];
+            durationList = new();
+        }
+
+        return (graph, nodeList, durationList);
+    }
+
+    static (Graph, Dictionary<string, int>) HandleDuration(Graph graph, List<string> nameList, int index, Dictionary<string, string> recordList, Dictionary<string, string> nodeList, Dictionary<string, int> durationList, string duration)
+    {
+        var subject1 = graph.CreateUriNode(UriFactory.Create(mainURI + nameList[index] + '/' + recordList["cpu"] + '/' + recordList["system"] + '/' + recordList["language"] + '/' + recordList["method"]));
+        var predicate1 = graph.CreateUriNode(UriFactory.Create(mainURI + "Duration"));
+        if (durationList.ContainsKey(duration))
+        {
+            var obj = graph.CreateLiteralNode(duration + '.' + new string('0', durationList[duration]));
+            graph.Assert(new Triple(subject1, predicate1, obj));
+            durationList[duration]++;
+        }
+        else
+        {
+            var obj = graph.CreateLiteralNode(duration);
+            graph.Assert(new Triple(subject1, predicate1, obj));
+            durationList[duration] = 1;
+        }
+
+        return (graph, durationList);
+    }
+
+    static Dictionary<string, bool> ResetChangeList(Dictionary<string, bool> changeList)
+    {
+        foreach (var category in changeList)
+        {
+            changeList[category.Key] = false;
+        }
+
+        return changeList;
+    }
+
+    static void SaveRDFGraph(Graph graph)
+    {
+        var rdfWriter = new CompressingTurtleWriter();
+        using (var rdfStream = new MemoryStream())
+        using (var rdfWriterStream = new StreamWriter(rdfStream, Encoding.UTF8))
+        {
+            rdfWriter.Save(graph, rdfWriterStream);
+
+            File.WriteAllBytes(rdfFilePath, rdfStream.ToArray());
+        }
     }
 }
 
