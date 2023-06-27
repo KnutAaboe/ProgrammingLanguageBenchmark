@@ -41,6 +41,7 @@ class Program
             Dictionary<string, string> recordList = new() { { "method", record.Method }, { "language", record.Language }, { "system", record.System }, { "cpu", record.CPU } };
             var duration = record.Duration;
 
+            // Skip to the next person if all current fields are empty
             if (recordList["cpu"].Equals("") && recordList["system"].Equals("") && recordList["language"].Equals("") && recordList["method"].Equals("") && duration.Equals(""))
             {
                 index++;
@@ -54,7 +55,7 @@ class Program
 
             (index, graph, nodeList, changeList) = CreateSubjectTriple(graph, nameList, index, recordList, nodeList, changeList);
 
-            (graph, nodeList, changeList) = HandleCPUMethodChanges(graph, nameList, index, recordList, nodeList, changeList);
+            (graph, nodeList, changeList) = HandleCPUChange(graph, nameList, index, recordList, nodeList, changeList);
 
             (graph, nodeList, changeList) = HandleSystemChange(graph, nameList, index, recordList, nodeList, changeList);
 
@@ -74,16 +75,8 @@ class Program
     {
         if (index == -1)
         {
+            // Create CPU node triple if at row 0
             index++;
-            var subject = graph.CreateUriNode(UriFactory.Create(mainURI + nameList[index]));
-            var predicate = graph.CreateUriNode(UriFactory.Create(mainURI + "CPU"));
-            var obj = graph.CreateLiteralNode(recordList["cpu"]);
-            graph.Assert(new Triple(subject, predicate, obj));
-            nodeList["cpu"] = recordList["cpu"];
-            changeList["cpu"] = true;
-        }
-        else if (!recordList["cpu"].Equals(nodeList["cpu"]) || changeList["index"])
-        {
             var subject = graph.CreateUriNode(UriFactory.Create(mainURI + nameList[index]));
             var predicate = graph.CreateUriNode(UriFactory.Create(mainURI + "CPU"));
             var obj = graph.CreateLiteralNode(recordList["cpu"]);
@@ -95,35 +88,27 @@ class Program
         return (index, graph, nodeList, changeList);
     }
 
-    static (Graph, Dictionary<string, string>, Dictionary<string, bool>) HandleCPUMethodChanges(Graph graph, List<string> nameList, int index, Dictionary<string, string> recordList, Dictionary<string, string> nodeList, Dictionary<string, bool> changeList)
+    static (Graph, Dictionary<string, string>, Dictionary<string, bool>) HandleCPUChange(Graph graph, List<string> nameList, int index, Dictionary<string, string> recordList, Dictionary<string, string> nodeList, Dictionary<string, bool> changeList)
     {
-        if (!recordList["system"].Equals(nodeList["system"]) || changeList["cpu"] || changeList["index"])
+        if (!recordList["cpu"].Equals(nodeList["cpu"]) || changeList["index"])
         {
-            var subject = graph.CreateUriNode(UriFactory.Create(mainURI + nameList[index] + '/' + recordList["cpu"]));
-            var predicate = graph.CreateUriNode(UriFactory.Create(mainURI + "System"));
-            var obj = graph.CreateLiteralNode(recordList["system"]);
+            // Create CPU node triple if the CPU name has changed
+            var subject = graph.CreateUriNode(UriFactory.Create(mainURI + nameList[index]));
+            var predicate = graph.CreateUriNode(UriFactory.Create(mainURI + "CPU"));
+            var obj = graph.CreateLiteralNode(recordList["cpu"]);
             graph.Assert(new Triple(subject, predicate, obj));
-            nodeList["system"] = recordList["system"];
-            changeList["system"] = true;
-        }
-
-        if (!recordList["language"].Equals(nodeList["language"]) || changeList["system"] || changeList["cpu"] || changeList["index"])
-        {
-            var subject = graph.CreateUriNode(UriFactory.Create(mainURI + nameList[index] + '/' + recordList["cpu"] + '/' + recordList["system"]));
-            var predicate = graph.CreateUriNode(UriFactory.Create(mainURI + "Language"));
-            var obj = graph.CreateLiteralNode(recordList["language"]);
-            graph.Assert(new Triple(subject, predicate, obj));
-            nodeList["language"] = recordList["language"];
-            changeList["language"] = true;
+            nodeList["cpu"] = recordList["cpu"];
+            changeList["cpu"] = true;
         }
 
         return (graph, nodeList, changeList);
     }
 
-    static (Graph, Dictionary<string, string>, Dictionary<string, bool>) HandleSystemChange(Graph graph, List<string> nameList, int index, Dictionary<string, string> recordList, Dictionary<string, string> nodeList, Dictionary<string, bool> changeList)
+        static (Graph, Dictionary<string, string>, Dictionary<string, bool>) HandleSystemChange(Graph graph, List<string> nameList, int index, Dictionary<string, string> recordList, Dictionary<string, string> nodeList, Dictionary<string, bool> changeList)
     {
         if (!recordList["system"].Equals(nodeList["system"]) || changeList["cpu"] || changeList["index"])
         {
+            // Create System node triple if the system name has changed
             var subject = graph.CreateUriNode(UriFactory.Create(mainURI + nameList[index] + '/' + recordList["cpu"]));
             var predicate = graph.CreateUriNode(UriFactory.Create(mainURI + "System"));
             var obj = graph.CreateLiteralNode(recordList["system"]);
@@ -139,6 +124,7 @@ class Program
     {
         if (!recordList["language"].Equals(nodeList["language"]) || changeList["system"] || changeList["cpu"] || changeList["index"])
         {
+            // Create Language node triple if the language name has changed
             var subject = graph.CreateUriNode(UriFactory.Create(mainURI + nameList[index] + '/' + recordList["cpu"] + '/' + recordList["system"]));
             var predicate = graph.CreateUriNode(UriFactory.Create(mainURI + "Language"));
             var obj = graph.CreateLiteralNode(recordList["language"]);
@@ -154,6 +140,7 @@ class Program
     {
         if (!recordList["method"].Equals(nodeList["method"]) || changeList["language"] || changeList["system"] || changeList["cpu"] || changeList["index"])
         {
+            // Create Method node triple if the method name has changed
             var subject = graph.CreateUriNode(UriFactory.Create(mainURI + nameList[index] + '/' + recordList["cpu"] + '/' + recordList["system"] + '/' + recordList["language"]));
             var predicate = graph.CreateUriNode(UriFactory.Create(mainURI + "Method"));
             var obj = graph.CreateLiteralNode(recordList["method"]);
@@ -167,6 +154,7 @@ class Program
 
     static (Graph, Dictionary<string, int>) HandleDuration(Graph graph, List<string> nameList, int index, Dictionary<string, string> recordList, Dictionary<string, string> nodeList, Dictionary<string, int> durationList, string duration)
     {
+        // Create Duration node triple
         var subject1 = graph.CreateUriNode(UriFactory.Create(mainURI + nameList[index] + '/' + recordList["cpu"] + '/' + recordList["system"] + '/' + recordList["language"] + '/' + recordList["method"]));
         var predicate1 = graph.CreateUriNode(UriFactory.Create(mainURI + "Duration"));
         if (durationList.ContainsKey(duration))
@@ -185,6 +173,7 @@ class Program
         return (graph, durationList);
     }
 
+    // Reset changeList for the next record
     static Dictionary<string, bool> ResetChangeList(Dictionary<string, bool> changeList)
     {
         foreach (var category in changeList)
