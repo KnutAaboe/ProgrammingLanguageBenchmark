@@ -237,3 +237,4 @@ project.lock.json
 # UWP Projects
 AppPackages/
 publish-results/publish-results/publish-results/Test_Resultater.ttl
+publish-results/publish-results/publish-results/Test_Resultater.csv
