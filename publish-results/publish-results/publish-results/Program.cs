@@ -1,7 +1,8 @@
-﻿using System.Text;
-using CsvHelper;
+﻿using CsvHelper;
+using System.Text;
 using VDS.RDF;
 using VDS.RDF.Writing;
+using Graph = VDS.RDF.Graph;
 
 class Program
 {
@@ -32,9 +33,10 @@ class Program
         var graph = new Graph();
         var nameList = new List<string> { "Cecilie", "Sassan", "Espen" };
         int index = -1; // Counter for nameList index
-        var durationList = new Dictionary<string, int>(); // Lists the number of times each duration (ms) has been repeated
+        var durationList = new List<double>();
         var nodeList = new Dictionary<string, string> { { "method", "" }, { "language", "" }, { "system", "" }, { "cpu", "" } };
         var changeList = new Dictionary<string, bool> { { "language", false }, { "system", false }, { "cpu", false }, { "index", false } };
+        var prevNodeList = new Dictionary<string, string> { { "method", "" }, { "language", "" }, { "system", "" }, { "cpu", "" }, { "index", "" } };
 
         foreach (var record in records)
         {
@@ -46,12 +48,15 @@ class Program
             {
                 index++;
                 changeList["index"] = true;
-                durationList = new();
+
                 continue;
             }
 
             if (nameList.Contains(recordList["cpu"]) || recordList["cpu"].Equals("CPU"))
                 continue;
+
+            if (index == 2 && recordList["language"].Equals("Nodejs") && recordList["method"].Equals("S"))
+                Console.WriteLine("We're here.");
 
             (index, graph, nodeList, changeList) = CreateSubjectTriple(graph, nameList, index, recordList, nodeList, changeList);
 
@@ -61,11 +66,22 @@ class Program
 
             (graph, nodeList, changeList) = HandleLanguageChange(graph, nameList, index, recordList, nodeList, changeList);
 
-            (graph, nodeList, durationList) = HandleMethodChange(graph, nameList, index, recordList, nodeList, durationList, changeList);
+            (graph, nodeList, durationList) = HandleMethodChange(graph, nameList, index, recordList, nodeList, prevNodeList, changeList, durationList, duration);
 
-            (graph, durationList) = HandleDuration(graph, nameList, index, recordList, nodeList, durationList, duration);
+            if (records.Last().Equals(record))
+            {
+                graph = AnalyseDuration(graph, durationList, nameList, index, nodeList["cpu"], nodeList["system"], nodeList["language"], nodeList["method"]);
+                continue;
+            }
 
             changeList = ResetChangeList(changeList);
+            
+            foreach (var (key, val) in nodeList)
+            {
+                prevNodeList[key] = val;
+            }
+
+            prevNodeList["index"] = index.ToString();
         }
 
         return graph;
@@ -75,8 +91,10 @@ class Program
     {
         if (index == -1)
         {
-            // Create CPU node triple if at row 0
             index++;
+            nodeList = new Dictionary<string, string> { { "method", "" }, { "language", "" }, { "system", "" }, { "cpu", "" } };
+            
+            // Create CPU node triple if at row 0
             var subject = graph.CreateUriNode(UriFactory.Create(mainURI + nameList[index]));
             var predicate = graph.CreateUriNode(UriFactory.Create(mainURI + "CPU"));
             var obj = graph.CreateLiteralNode(recordList["cpu"]);
@@ -136,41 +154,105 @@ class Program
         return (graph, nodeList, changeList);
     }
 
-    static (Graph, Dictionary<string, string>, Dictionary<string, int>) HandleMethodChange(Graph graph, List<string> nameList, int index, Dictionary<string, string> recordList, Dictionary<string, string> nodeList, Dictionary<string, int> durationList, Dictionary<string, bool> changeList)
+    static (Graph, Dictionary<string, string>, List<double> durationListOut) HandleMethodChange(Graph graph, List<string> nameList, int index, Dictionary<string, string> recordList, Dictionary<string, string> nodeList, Dictionary<string, string> prevNodeList, Dictionary<string, bool> changeList, List<double> durationList, string duration)
     {
+        var durationListOut = new List<double>();
+
         if (!recordList["method"].Equals(nodeList["method"]) || changeList["language"] || changeList["system"] || changeList["cpu"] || changeList["index"])
         {
+            var noPrevMethod = false;
+
+            var prevMethod = prevNodeList["method"];
+            if (prevMethod == "")
+            {
+                prevMethod = recordList["method"];
+                noPrevMethod = true;
+            }
+            
+            var language = recordList["language"];
+            if (!recordList["language"].Equals(prevNodeList["language"]) && !prevNodeList["language"].Equals(""))
+                language = prevNodeList["language"];
+
+            var system = recordList["system"];
+            if (!recordList["system"].Equals(prevNodeList["system"]) && !prevNodeList["system"].Equals(""))
+                system = prevNodeList["system"];
+
+            var cpu = recordList["cpu"];
+            if (!recordList["cpu"].Equals(prevNodeList["cpu"]) && !prevNodeList["cpu"].Equals(""))
+                cpu = prevNodeList["cpu"];
+
+            var prevIndex = index;
+            if (!index.Equals(prevNodeList["index"]))
+                prevIndex = prevNodeList["index"] != "" ? Convert.ToInt32(prevNodeList["index"]) : 0;
+
             // Create Method node triple if the method name has changed
-            var subject = graph.CreateUriNode(UriFactory.Create(mainURI + nameList[index] + '/' + recordList["cpu"] + '/' + recordList["system"] + '/' + recordList["language"]));
+            var subject = graph.CreateUriNode(UriFactory.Create(mainURI + nameList[prevIndex] + '/' + cpu + '/' + system + '/' + language));
             var predicate = graph.CreateUriNode(UriFactory.Create(mainURI + "Method"));
             var obj = graph.CreateLiteralNode(recordList["method"]);
             graph.Assert(new Triple(subject, predicate, obj));
             nodeList["method"] = recordList["method"];
-            durationList = new();
-        }
 
-        return (graph, nodeList, durationList);
-    }
+            if (noPrevMethod)
+            {
+                // Skip wrapping up existing values in durationList if on a new person
+                // Create Cold Duration node triple for the current duration value
+                subject = graph.CreateUriNode(UriFactory.Create(mainURI + nameList[index] + '/' + cpu + '/' + system + '/' + language + '/' + recordList["method"]));
+                predicate = graph.CreateUriNode(UriFactory.Create(mainURI + "Duration/Cold"));
+                obj = graph.CreateLiteralNode(duration);
+                graph.Assert(new Triple(subject, predicate, obj));
+            }
+            else
+            {
+                graph = AnalyseDuration(graph, durationList, nameList, prevIndex, cpu, system, language, prevMethod);
 
-    static (Graph, Dictionary<string, int>) HandleDuration(Graph graph, List<string> nameList, int index, Dictionary<string, string> recordList, Dictionary<string, string> nodeList, Dictionary<string, int> durationList, string duration)
-    {
-        // Create Duration node triple
-        var subject1 = graph.CreateUriNode(UriFactory.Create(mainURI + nameList[index] + '/' + recordList["cpu"] + '/' + recordList["system"] + '/' + recordList["language"] + '/' + recordList["method"]));
-        var predicate1 = graph.CreateUriNode(UriFactory.Create(mainURI + "Duration"));
-        if (durationList.ContainsKey(duration))
-        {
-            var obj = graph.CreateLiteralNode(duration + '.' + new string('0', durationList[duration]));
-            graph.Assert(new Triple(subject1, predicate1, obj));
-            durationList[duration]++;
+                // Create Cold Duration node triple for the current duration value
+                subject = graph.CreateUriNode(UriFactory.Create(mainURI + nameList[index] + '/' + recordList["cpu"] + '/' + recordList["system"] + '/' + recordList["language"] + '/' + recordList["method"]));
+                predicate = graph.CreateUriNode(UriFactory.Create(mainURI + "Duration/Cold"));
+                obj = graph.CreateLiteralNode(duration);
+                graph.Assert(new Triple(subject, predicate, obj));
+            }
         }
         else
         {
-            var obj = graph.CreateLiteralNode(duration);
-            graph.Assert(new Triple(subject1, predicate1, obj));
-            durationList[duration] = 1;
+            durationListOut = HandleDuration(durationList, duration);
         }
 
-        return (graph, durationList);
+        return (graph, nodeList, durationListOut);
+    }
+
+    static List<double> HandleDuration(List<double> durationList, string duration)
+    {
+        durationList.Add(Convert.ToDouble(duration));
+
+        return durationList;
+    }
+
+    static Graph AnalyseDuration(Graph graph, List<double> durationList, List<string> nameList, int prevIndex, string cpu, string system, string language, string prevMethod)
+    {
+        // Find the average of all duration values
+        var average = durationList.Count > 0 ? durationList.Average() : 0.0;
+        var sum = durationList.Count > 0 ? durationList.Sum() : 0.0;
+        var min = durationList.Count > 0 ? durationList.Min() : 0.0;
+
+        // Create Mean Duration node triple with the average duration value
+        var subject = graph.CreateUriNode(UriFactory.Create(mainURI + nameList[prevIndex] + '/' + cpu + '/' + system + '/' + language + '/' + prevMethod));
+        var predicate = graph.CreateUriNode(UriFactory.Create(mainURI + "Duration/Mean"));
+        var obj = graph.CreateLiteralNode(average.ToString());
+        graph.Assert(new Triple(subject, predicate, obj));
+
+        // Create Sum Duration node triple with the sum of duration values
+        subject = graph.CreateUriNode(UriFactory.Create(mainURI + nameList[prevIndex] + '/' + cpu + '/' + system + '/' + language + '/' + prevMethod));
+        predicate = graph.CreateUriNode(UriFactory.Create(mainURI + "Duration/Sum"));
+        obj = graph.CreateLiteralNode(sum.ToString());
+        graph.Assert(new Triple(subject, predicate, obj));
+
+        // Create Min Duration node triple with minimum duration value
+        subject = graph.CreateUriNode(UriFactory.Create(mainURI + nameList[prevIndex] + '/' + cpu + '/' + system + '/' + language + '/' + prevMethod));
+        predicate = graph.CreateUriNode(UriFactory.Create(mainURI + "Duration/Min"));
+        obj = graph.CreateLiteralNode(min.ToString());
+        graph.Assert(new Triple(subject, predicate, obj));
+
+        return graph;
     }
 
     // Reset changeList for the next record
