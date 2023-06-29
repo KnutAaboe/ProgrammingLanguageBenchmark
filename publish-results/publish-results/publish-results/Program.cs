@@ -55,9 +55,6 @@ class Program
             if (nameList.Contains(recordList["cpu"]) || recordList["cpu"].Equals("CPU"))
                 continue;
 
-            if (index == 2 && recordList["language"].Equals("Nodejs") && recordList["method"].Equals("S"))
-                Console.WriteLine("We're here.");
-
             (index, graph, nodeList, changeList) = CreateSubjectTriple(graph, nameList, index, recordList, nodeList, changeList);
 
             (graph, nodeList, changeList) = HandleCPUChange(graph, nameList, index, recordList, nodeList, changeList);
@@ -186,7 +183,7 @@ class Program
                 prevIndex = prevNodeList["index"] != "" ? Convert.ToInt32(prevNodeList["index"]) : 0;
 
             // Create Method node triple if the method name has changed
-            var subject = graph.CreateUriNode(UriFactory.Create(mainURI + nameList[prevIndex] + '/' + cpu + '/' + system + '/' + language));
+            var subject = graph.CreateUriNode(UriFactory.Create(mainURI + nameList[index] + '/' + recordList["cpu"] + '/' + recordList["system"] + '/' + recordList["language"]));
             var predicate = graph.CreateUriNode(UriFactory.Create(mainURI + "Method"));
             var obj = graph.CreateLiteralNode(recordList["method"]);
             graph.Assert(new Triple(subject, predicate, obj));
@@ -196,7 +193,7 @@ class Program
             {
                 // Skip wrapping up existing values in durationList if on a new person
                 // Create Cold Duration node triple for the current duration value
-                subject = graph.CreateUriNode(UriFactory.Create(mainURI + nameList[index] + '/' + cpu + '/' + system + '/' + language + '/' + recordList["method"]));
+                subject = graph.CreateUriNode(UriFactory.Create(mainURI + nameList[index] + '/' + recordList["cpu"] + '/' + recordList["system"] + '/' + recordList["language"] + '/' + recordList["method"]));
                 predicate = graph.CreateUriNode(UriFactory.Create(mainURI + "Duration/Cold"));
                 obj = graph.CreateLiteralNode(duration);
                 graph.Assert(new Triple(subject, predicate, obj));
